@@ -79,6 +79,50 @@ async function extractTextFromPDF(buffer) {
   });
 }
 
+async function analyzeCVText(text) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing Gemini API key");
+  }
+  const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            text: `You are an expert CV/Resume reviewer and career advisor. Analyze the following CV and provide detailed, actionable recommendations to improve it.
+            Focus on:
+            1. Structure & Format
+            2. Content Quality
+            3. Keywords & ATS
+            4. Achievements
+            5. Skills Section
+            6. Overall Impact
+            7. Common Issues
+            Provide specific examples and constructive suggestions.\n\nCV TEXT:\n${text}`,
+          },
+        ],
+      },
+    ],
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Gemini API error ${response.status} : ${err}`);
+  }
+  const result = await response.json();
+  const aiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response text";
+  return aiText;
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -125,6 +169,9 @@ app.post("/api/upload", upload.single("cv"), async (req, res) => {
     console.log("Text extracted successfully");
     console.log("Text length: ", extractedText.length, " characters");
     console.log("Preview: ", extractedText.substring(0, 100) + " ... ");
+    console.log("Analyzing extracted text with Gemini AI...");
+    const aiAnalysis = await analyzeCVText(extractedText);
+    console.log("AI analysis done.");
 
     // Send success response
     res.json({
@@ -136,6 +183,7 @@ app.post("/api/upload", upload.single("cv"), async (req, res) => {
         fileType: req.file.mimetype,
         extractedText: extractedText,
         textLength: extractedText.length,
+        aiAnalysis: aiAnalysis,
       },
     });
   } catch (error) {
