@@ -2,6 +2,8 @@
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+const Tesseract = require("tesseract.js");
+const PDFparser = require("pdf2json");
 require("dotenv").config();
 
 // Creating express application
@@ -37,12 +39,52 @@ const upload = multer({
   },
 });
 
+// Extracting Text from image files using OCR
+async function extractTextFromImage(buffer) {
+  try {
+    const result = await Tesseract.recognize(buffer, "eng+ara+fra", {
+      logger: (info) =>
+        console.log("OCR Progress: ", info.status, info.progress),
+    });
+    return result.data.text;
+  } catch (error) {
+    throw new Error("OCR extraction failed: " + error.message);
+  }
+}
+
+// Extracting text from PDF
+async function extractTextFromPDF(buffer) {
+  return new Promise((resolve, reject) => {
+    const pdfParser = new PDFparser();
+    pdfParser.on("pdfParser_dataError", (errData) => {
+      reject(new Error("PDF extraction failed: " + errData.parseError));
+    });
+    pdfParser.on("pdfParser_dataReady", (pdfData) => {
+      try {
+        let text = "";
+        pdfData.Pages.forEach((page) => {
+          page.Texts.forEach((textItem) => {
+            textItem.R.forEach((r) => {
+              text += decodeURIComponent(r.T) + " ";
+            });
+          });
+          text += "\n";
+        });
+        resolve(text.trim());
+      } catch (error) {
+        reject(new Error("Failed to parse PDF content: " + error.message));
+      }
+    });
+    pdfParser.parseBuffer(buffer);
+  });
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // File upload endpoint
-app.post("/api/upload", upload.single("cv"), (req, res) => {
+app.post("/api/upload", upload.single("cv"), async (req, res) => {
   try {
     // Checking if file was uploaded
     if (!req.file) {
@@ -56,21 +98,51 @@ app.post("/api/upload", upload.single("cv"), (req, res) => {
     console.log("Size: ", req.file.size, " bytes");
     console.log("Type: ", req.file.mimetype);
 
+    let extractedText = "";
+
+    // Extracting text based on file type
+    if (req.file.mimetype == "application/pdf") {
+      console.log("Extracting text from PDF");
+      extractedText = await extractTextFromPDF(req.file.buffer);
+    } else if (req.file.mimetype.startsWith("image/")) {
+      console.log("Extracting text from image using OCR");
+      extractedText = await extractTextFromImage(req.file.buffer);
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: "Unsupported file type",
+      });
+    }
+
+    // Ensure we got meaningful text (at least 50 characters)
+    if (!extractedText || extractedText.trim().length < 50) {
+      return res.status(400).json({
+        success: false,
+        error: "Could not extract meaningful text from file!",
+      });
+    }
+
+    console.log("Text extracted successfully");
+    console.log("Text length: ", extractedText.length, " characters");
+    console.log("Preview: ", extractedText.substring(0, 100) + " ... ");
+
     // Send success response
     res.json({
       success: true,
-      message: "File uploaded successfully",
-      file: {
-        name: req.file.originalname,
-        size: req.file.size,
-        type: req.file.mimetype,
+      message: "File processed successfully",
+      data: {
+        filename: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype,
+        extractedText: extractedText,
+        textLength: extractedText.length,
       },
     });
   } catch (error) {
     console.error("Upload error: ", error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error.message || "Failed to process file",
     });
   }
 });
@@ -129,6 +201,6 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost: ${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 });
