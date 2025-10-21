@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const Tesseract = require("tesseract.js");
-const PDFparser = require("pdf2json");
+const PDFParser = require("pdf2json");
 require("dotenv").config();
 
 // Creating express application
@@ -34,7 +34,7 @@ const upload = multer({
       // mimetype is file format identifier
       cb(null, true); // accept file
     } else {
-      cb(new Error("Inavlid file type. Only pdf, png and jpg are allowed")); // reject file
+      cb(new Error("Invalid file type. Only pdf, png and jpg are allowed")); // reject file
     }
   },
 });
@@ -55,9 +55,9 @@ async function extractTextFromImage(buffer) {
 // Extracting text from PDF
 async function extractTextFromPDF(buffer) {
   return new Promise((resolve, reject) => {
-    const pdfParser = new PDFparser();
+    const pdfParser = new PDFParser();
     pdfParser.on("pdfParser_dataError", (errData) => {
-      reject(new Error("PDF extraction failed: " + errData.parseError));
+      reject(new Error("PDF extraction failed: " + errData.parserError));
     });
     pdfParser.on("pdfParser_dataReady", (pdfData) => {
       try {
@@ -119,12 +119,39 @@ async function analyzeCVText(text) {
     throw new Error(`Gemini API error ${response.status} : ${err}`);
   }
   const result = await response.json();
-  const aiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response text";
+  const aiText =
+    result.candidates?.[0]?.content?.parts?.[0]?.text || "No response text";
   return aiText;
 }
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      const allowedOrigins = [
+        "http://localhost:3000",
+        "http://localohost:3001",
+        /\.netlify\.app$/,
+      ];
+
+      if (!origin) return callback(null, true);
+
+      const isAllowed = allowedOrigins.some((allowed) => {
+        if (typeof allowed === "string") {
+          return origin === allowed;
+        }
+        return allowed.test(origin);
+      });
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // File upload endpoint
@@ -137,7 +164,7 @@ app.post("/api/upload", upload.single("cv"), async (req, res) => {
         error: "No file uploaded",
       });
     }
-    console.log("File recieved:");
+    console.log("File received:");
     console.log("Name: ", req.file.originalname);
     console.log("Size: ", req.file.size, " bytes");
     console.log("Type: ", req.file.mimetype);
@@ -145,7 +172,7 @@ app.post("/api/upload", upload.single("cv"), async (req, res) => {
     let extractedText = "";
 
     // Extracting text based on file type
-    if (req.file.mimetype == "application/pdf") {
+    if (req.file.mimetype === "application/pdf") {
       console.log("Extracting text from PDF");
       extractedText = await extractTextFromPDF(req.file.buffer);
     } else if (req.file.mimetype.startsWith("image/")) {
