@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, { useState } from "react";
 import {
   Upload,
   FileText,
@@ -7,6 +7,9 @@ import {
   XCircle,
   Loader2,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 function App() {
   // State Management
@@ -83,7 +86,7 @@ function App() {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
       const response = await fetch(`${apiUrl}/api/upload`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
       const data = await response.json();
@@ -152,17 +155,18 @@ function App() {
           )}
 
           {file && !error && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-green-700 text-sm font-medium">
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center min-w-0">
+                <CheckCircle className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />
+                <span className="text-green-700 text-sm font-medium truncate max-w-full sm:max-w-xs md:max-w-md">
                   {file.name} uploaded
                 </span>
               </div>
+
               <button
                 onClick={analyzeCV}
                 disabled={loading}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center"
+                className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {loading ? (
                   <>
@@ -205,10 +209,10 @@ function App() {
                   AI Recommendations
                 </h2>
               </div>
-              <div className="prose prose-sm max-w-none">
-                <div className="text-gray-700 whitespace-pre-wrap">
+              <div className="prose prose-indigo max-w-none dark:prose-invert">
+                <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>
                   {analysis}
-                </div>
+                </ReactMarkdown>
               </div>
             </div>
           </div>

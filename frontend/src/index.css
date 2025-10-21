@@ -1,3 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.prose h2, .prose h3 {
+  color: #4338ca; 
+}
