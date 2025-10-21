@@ -1,10 +1,13 @@
 // Importing required packages
+require("dotenv").config();
+console.log("API Key exists:", !!process.env.GEMINI_API_KEY);
+console.log("API Key length:", process.env.GEMINI_API_KEY?.length);
+console.log("First 10 chars:", process.env.GEMINI_API_KEY?.substring(0, 10));
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const Tesseract = require("tesseract.js");
-const PDFParser = require("pdf2json");
-require("dotenv").config();
+const pdfParse = require("pdf-parse").default || require("pdf-parse");
 
 // Creating express application
 const app = express();
@@ -39,6 +42,7 @@ const upload = multer({
   },
 });
 
+
 // Extracting Text from image files using OCR
 async function extractTextFromImage(buffer) {
   try {
@@ -54,29 +58,13 @@ async function extractTextFromImage(buffer) {
 
 // Extracting text from PDF
 async function extractTextFromPDF(buffer) {
-  return new Promise((resolve, reject) => {
-    const pdfParser = new PDFParser();
-    pdfParser.on("pdfParser_dataError", (errData) => {
-      reject(new Error("PDF extraction failed: " + errData.parserError));
-    });
-    pdfParser.on("pdfParser_dataReady", (pdfData) => {
-      try {
-        let text = "";
-        pdfData.Pages.forEach((page) => {
-          page.Texts.forEach((textItem) => {
-            textItem.R.forEach((r) => {
-              text += decodeURIComponent(r.T) + " ";
-            });
-          });
-          text += "\n";
-        });
-        resolve(text.trim());
-      } catch (error) {
-        reject(new Error("Failed to parse PDF content: " + error.message));
-      }
-    });
-    pdfParser.parseBuffer(buffer);
-  });
+  try {
+    const data = await pdfParse(buffer);
+    return data.text;
+  } catch (error)
+  {
+    throw new Error("Error parsing pdf file " + error.message);
+  }
 }
 
 async function analyzeCVText(text) {
