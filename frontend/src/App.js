@@ -209,7 +209,7 @@ function App() {
                   AI Recommendations
                 </h2>
               </div>
-              <div className="prose prose-indigo max-w-none dark:prose-invert">
+              <div className="prose prose-indigo max-w-none">
                 <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>
                   {analysis}
                 </ReactMarkdown>

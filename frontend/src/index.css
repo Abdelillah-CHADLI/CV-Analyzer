@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-.prose h2, .prose h3 {
-  color: #4338ca; 
+.prose {
+  color: #1f2937; 
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  color: #111827;
+}
+
+.prose strong {
+  color: #111827;
+}
+
+.prose code {
+  background-color: #f3f4f6;
+  color: #e11d48; 
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+}
+
+.prose a {
+  color: #2563eb; 
+  text-decoration: underline;
+}
+
+.prose li::marker {
+  color: #6366f1;
 }
