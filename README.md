@@ -1,5 +1,9 @@
 # CV Analyzer
 
+> **Note about the live demo:**  
+> The application uses a hosted backend service for CV analysis with the Gemini API.  
+> Because the service may become inactive after long periods without traffic, the first request can take **2–3 minutes** to complete while the backend wakes up. Subsequent requests are usually much faster.
+
 **AI-powered CV analysis tool** that extracts, analyzes, and provides actionable recommendations to help users improve their resumes. Supports PDF, PNG, and JPG files, with OCR text extraction.
 
 ---
