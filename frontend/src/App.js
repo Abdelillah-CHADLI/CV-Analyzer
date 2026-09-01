@@ -117,6 +117,34 @@ function App() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+  // Split markdown into sections based on headings (## or ###)
+  const splitIntoSections = (markdown) => {
+    if (!markdown) return [];
+    const lines = markdown.split("\n");
+    const sections = [];
+    let current = { title: null, content: [] };
+
+    lines.forEach((line) => {
+      const headingMatch = line.match(/^#{2,3}\s+(.+)/);
+      if (headingMatch) {
+        if (current.content.length > 0) {
+          sections.push({ ...current, content: current.content.join("\n") });
+        }
+        current = { title: headingMatch[1].trim(), content: [] };
+      } else {
+        current.content.push(line);
+      }
+    });
+
+    if (current.content.length > 0) {
+      sections.push({ ...current, content: current.content.join("\n") });
+    }
+
+    return sections;
+  };
+
+  const analysisSections = analysis ? splitIntoSections(analysis) : [];
+
   return (
     <div className="min-h-screen bg-surface-50 relative overflow-hidden">
       {/* Background decoration */}
@@ -196,13 +224,16 @@ function App() {
                   <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center">
                     <File className="w-7 h-7 text-brand-500" />
                   </div>
-                  <div className="text-left max-w-full">
+                  <div className="text-center max-w-full">
                     <p className="font-semibold text-stone-800 text-sm truncate max-w-[260px]">
                       {file.name}
                     </p>
-                    <p className="text-xs text-stone-400 mt-0.5">
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-stone-50 border border-stone-100 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse-slow" />
+                    <span className="text-xs text-stone-500 font-medium">
                       {formatFileSize(file.size)}
-                    </p>
+                    </span>
                   </div>
                   <button
                     onClick={(e) => {
@@ -315,9 +346,41 @@ function App() {
               </div>
 
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>
-                  {analysis}
-                </ReactMarkdown>
+                {analysisSections.length > 0 ? (
+                  <div className="space-y-8">
+                    {analysisSections.map((section, idx) => (
+                      <div key={idx} className="flex gap-4">
+                        <div className="hidden sm:flex flex-col items-center">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white font-display text-sm font-bold flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20">
+                            {idx + 1}
+                          </div>
+                          {idx < analysisSections.length - 1 && (
+                            <div className="w-px flex-1 bg-gradient-to-b from-brand-200 to-transparent my-2" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          {section.title && (
+                            <h3 className="font-display text-base font-bold text-stone-800 flex items-center gap-2 mb-2">
+                              <ChevronDown className="w-4 h-4 text-brand-500 sm:hidden" />
+                              {section.title}
+                            </h3>
+                          )}
+                          <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown
+                              rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                            >
+                              {section.content}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>
+                    {analysis}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           </div>
