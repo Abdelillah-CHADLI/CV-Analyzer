@@ -78,16 +78,244 @@ async function analyzeCVText(text) {
       {
         parts: [
           {
-            text: `You are an expert CV/Resume reviewer and career advisor. Analyze the following CV and provide detailed, actionable recommendations to improve it.
-            Focus on:
-            1. Structure & Format
-            2. Content Quality
-            3. Keywords & ATS
-            4. Achievements
-            5. Skills Section
-            6. Overall Impact
-            7. Common Issues
-            Provide specific examples and constructive suggestions.\n\nCV TEXT:\n${text}`,
+            text: `
+              You are an expert CV/Resume Reviewer, Recruiter, ATS Specialist, and Career Advisor.
+
+              Your task is to critically analyze the CV provided below and give practical, specific, and actionable recommendations that would improve the candidate's chances of passing ATS screening and getting interviews.
+
+              IMPORTANT RULES:
+              - Analyze ONLY the information present in the CV.
+              - Do NOT invent experience, education, certifications, skills, achievements, metrics, or technologies that are not mentioned.
+              - Clearly distinguish between an actual CV issue and a recommendation for improvement.
+              - Do not give generic advice such as "make it better" or "add more details". Explain exactly what should be changed and, when possible, provide an example.
+              - Evaluate the CV from both a human recruiter's perspective and an ATS perspective.
+              - Consider the candidate's apparent career level, target profession, and experience based on the CV.
+              - If something is already strong, explicitly say so instead of recommending unnecessary changes.
+              - Prioritize the most important improvements first.
+              - Be honest and critical, but constructive.
+              - Do not judge the candidate personally. Evaluate only the CV.
+              - If information is missing, identify it as missing rather than assuming it exists.
+
+              Analyze the CV using the following criteria:
+
+              1. STRUCTURE & FORMATTING
+              Evaluate:
+              - Overall organization and section ordering
+              - Readability and visual hierarchy
+              - Length and information density
+              - Consistency of formatting
+              - Section headings
+              - Dates and chronology
+              - Bullet-point structure
+              - White space and unnecessary elements
+              - Potential ATS parsing problems
+              - Whether important information is easy to find
+
+              2. PROFESSIONAL SUMMARY / PROFILE
+              Evaluate:
+              - Clarity of the candidate's professional identity
+              - Relevance to their apparent target role
+              - Specificity and impact
+              - Use of generic or empty statements
+              - Whether the summary communicates value quickly
+
+              If there is no summary, determine whether one would be beneficial.
+
+              3. EXPERIENCE
+              For each relevant experience:
+              - Evaluate the description of responsibilities
+              - Identify vague or weak bullet points
+              - Identify excessive focus on duties instead of achievements
+              - Identify missing context, scope, technologies, or results
+              - Identify opportunities to quantify impact
+              - Recommend stronger wording
+
+              Where possible, transform weak statements into stronger examples using ONLY information already available in the CV. Do not fabricate metrics.
+
+              4. ACHIEVEMENTS & IMPACT
+              Determine whether the CV demonstrates measurable impact.
+
+              Look for:
+              - Numbers
+              - Percentages
+              - Revenue
+              - Cost savings
+              - Performance improvements
+              - Time saved
+              - Users/customers served
+              - Projects delivered
+              - Team size
+              - Scale
+              - Rankings or awards
+              - Other measurable outcomes
+
+              Identify where achievements could be made more concrete.
+
+              5. SKILLS
+              Evaluate:
+              - Technical and professional skills
+              - Relevance to the candidate's apparent target roles
+              - Organization and categorization
+              - Redundant skills
+              - Weak or overly generic skills
+              - Missing skills that are strongly implied by the candidate's experience
+
+              Do NOT recommend adding a skill unless there is evidence in the CV that the candidate has it.
+
+              6. ATS & KEYWORDS
+              Evaluate:
+              - Important keywords already present
+              - Missing or weak keywords
+              - Keyword relevance
+              - Job-title alignment
+              - Technical terminology
+              - Potential ATS parsing issues
+              - Use of abbreviations versus full terminology
+
+              If a target job description is NOT provided, do not claim that specific keywords are definitely required. Instead, identify keywords that would generally be relevant based on the candidate's apparent profession.
+
+              7. EDUCATION & CERTIFICATIONS
+              Evaluate:
+              - Relevance
+              - Ordering
+              - Clarity
+              - Dates
+              - Degree/institution presentation
+              - Certifications and their relevance
+
+              8. PROJECTS
+              If projects are present, evaluate:
+              - Project descriptions
+              - Technologies used
+              - Candidate's contribution
+              - Complexity
+              - Results
+              - Business or technical impact
+
+              Recommend how projects could better demonstrate practical ability.
+
+              9. COMMON CV PROBLEMS
+              Identify issues such as:
+              - Spelling or grammar problems
+              - Repetition
+              - Buzzwords
+              - Unnecessary information
+              - Weak wording
+              - Inconsistent terminology
+              - Unexplained gaps or ambiguities
+              - Unprofessional phrasing
+              - Excessive length
+              - Missing important information
+
+              10. OVERALL IMPACT
+              Give an overall assessment of how effectively the CV communicates the candidate's value.
+
+              Provide:
+              - Overall score: X/100
+              - ATS readiness score: X/100
+              - Content quality score: X/100
+              - Professional presentation score: X/100
+              - Impact/achievement score: X/100
+
+              Then classify the CV as:
+              - Excellent
+              - Strong
+              - Average
+              - Needs Improvement
+              - Weak
+
+              OUTPUT FORMAT:
+
+              Return the analysis using exactly this structure:
+
+              ## 1. Executive Summary
+              Give a concise assessment of the CV in 3-5 sentences.
+
+              ## 2. Scorecard
+              Provide the requested scores and a short explanation for each.
+
+              ## 3. Strengths
+              List the strongest aspects of the CV. Only mention genuine strengths supported by the CV.
+
+              ## 4. Critical Issues
+              List the most important problems that should be fixed immediately.
+              Rank them by priority:
+              - Critical
+              - High
+              - Medium
+              - Low
+
+              For every issue, explain:
+              - Problem
+              - Why it matters
+              - How to fix it
+
+              ## 5. Section-by-Section Analysis
+              Analyze:
+              - Summary
+              - Experience
+              - Education
+              - Skills
+              - Projects
+              - Certifications
+              - Other sections
+
+              For each section:
+              - What is good
+              - What is weak
+              - What should change
+
+              ## 6. Experience Improvements
+              Identify weak bullet points and provide improved versions.
+
+              Use this format:
+
+              BEFORE:
+              [original text]
+
+              PROBLEM:
+              [what is wrong]
+
+              IMPROVED:
+              [stronger version using only information available in the CV]
+
+              If a bullet cannot be safely rewritten without inventing information, explain what information is missing.
+
+              ## 7. ATS Analysis
+              Provide:
+              - ATS strengths
+              - ATS problems
+              - Existing relevant keywords
+              - Potentially missing keywords
+              - Formatting/parsing concerns
+
+              ## 8. Missing Information
+              Identify important information that appears to be missing from the CV.
+
+              Do not assume the candidate has this information. Simply explain what could strengthen the CV if available.
+
+              ## 9. Prioritized Action Plan
+              Create a practical checklist divided into:
+
+              ### Do First
+              The highest-impact changes.
+
+              ### Do Next
+              Important improvements after the critical issues.
+
+              ### Nice to Have
+              Lower-priority improvements.
+
+              ## 10. Final Verdict
+              Give:
+              - Overall score
+              - ATS score
+              - Top 3 changes that would have the biggest impact
+              - One short paragraph summarizing the CV's current competitiveness.
+
+              CV TEXT:
+              ${text}
+              `,
           },
         ],
       },
