@@ -1,18 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Upload,
   FileText,
   Sparkles,
-  CheckCircle,
   XCircle,
   Loader2,
+  ArrowRight,
+  Shield,
+  Zap,
+  BarChart3,
+  ChevronDown,
+  File,
+  X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 
 function App() {
-  // State Management
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(null);
   const [extractedText, setExtractedText] = useState("");
@@ -20,8 +25,7 @@ function App() {
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
 
-  // Handling drag events
-  const handleDrag = (e) => {
+  const handleDrag = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
@@ -29,17 +33,16 @@ function App() {
     } else if (e.type === "dragleave") {
       setDragActive(false);
     }
-  };
+  }, []);
 
-  const handleDrop = (e) => {
+  const handleDrop = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
-  };
+  }, []);
 
   const handleChange = (e) => {
     e.preventDefault();
@@ -48,7 +51,6 @@ function App() {
     }
   };
 
-  // File validation
   const handleFile = (uploadedFile) => {
     const validTypes = [
       "image/png",
@@ -58,12 +60,12 @@ function App() {
     ];
 
     if (!validTypes.includes(uploadedFile.type)) {
-      setError("Please upload a PDF, PNG or JPG file");
+      setError("Please upload a PDF, PNG, or JPG file.");
       return;
     }
 
     if (uploadedFile.size > 10 * 1024 * 1024) {
-      setError("File size must be less than 10MB");
+      setError("File size must be less than 10MB.");
       return;
     }
 
@@ -73,7 +75,13 @@ function App() {
     setExtractedText("");
   };
 
-  // API Call to backend
+  const removeFile = () => {
+    setFile(null);
+    setError("");
+    setAnalysis(null);
+    setExtractedText("");
+  };
+
   const analyzeCV = async () => {
     if (!file) return;
 
@@ -91,38 +99,85 @@ function App() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Analysis Failed");
+        throw new Error(data.error || "Analysis failed");
       }
 
       setExtractedText(data.data.extractedText);
       setAnalysis(data.data.aiAnalysis);
     } catch (err) {
-      setError(err.message || "Failed to analyze CV!");
+      setError(err.message || "Failed to analyze CV. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Sparkles className="w-12 h-12 text-indigo-600" />
+    <div className="min-h-screen bg-surface-50 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-100/40 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-50/60 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-50/30 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        {/* Header */}
+        <header className="text-center mb-12 animate-fade-in">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 border border-brand-100 rounded-full text-brand-700 text-xs font-semibold mb-6 tracking-wide uppercase">
+            <Sparkles className="w-3.5 h-3.5" />
+            AI-Powered Analysis
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">CV Analyzer</h1>
-          <p className="text-gray-600">
-            Upload your CV and get AI-powered recommendations
+
+          <h1 className="font-display text-4xl sm:text-5xl font-extrabold text-stone-900 tracking-tight mb-4 leading-tight">
+            Upgrade your CV
+            <br />
+            <span className="bg-gradient-to-r from-brand-600 via-brand-500 to-violet-500 bg-clip-text text-transparent">
+              with smart feedback
+            </span>
+          </h1>
+
+          <p className="text-stone-500 text-lg max-w-md mx-auto leading-relaxed">
+            Upload your resume and receive tailored, AI-driven recommendations
+            to stand out to recruiters.
           </p>
+        </header>
+
+        {/* Features row */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-10 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          {[
+            { icon: Zap, label: "Instant analysis", sub: "Seconds" },
+            { icon: BarChart3, label: "ATS scoring", sub: "Optimized" },
+            { icon: Shield, label: "Private & secure", sub: "Encrypted" },
+          ].map(({ icon: Icon, label, sub }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center gap-1.5 py-4 px-2 bg-white/70 backdrop-blur-sm border border-stone-100 rounded-xl text-center"
+            >
+              <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center">
+                <Icon className="w-4.5 h-4.5 text-brand-600" />
+              </div>
+              <span className="text-xs sm:text-sm font-semibold text-stone-800">{label}</span>
+              <span className="text-[10px] sm:text-xs text-stone-400 font-medium">{sub}</span>
+            </div>
+          ))}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+        {/* Upload Card */}
+        <div
+          className={`card p-6 sm:p-8 animate-slide-up ${!analysis ? "shadow-elevated" : ""}`}
+          style={{ animationDelay: "0.2s" }}
+        >
+          {/* Dropzone */}
           <div
-            className={`border-3 border-dashed rounded-lg p-12 text-center transition-all ${
-              dragActive
-                ? "border-indigo-500 bg-indigo-50"
-                : "border-gray-300 hover:border-indigo-400"
-            }`}
+            className={`upload-zone ${
+              dragActive ? "upload-zone-active" : "upload-zone-idle"
+            } cursor-pointer`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -135,48 +190,77 @@ function App() {
               accept=".pdf,.png,.jpg,.jpeg"
               onChange={handleChange}
             />
-
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-lg font-semibold text-gray-700 mb-2">
-                {file ? file.name : "Drop your CV here or click to upload"}
-              </p>
-              <p className="text-sm text-gray-500">
-                Supports PDF, PNG, JPG (Max 10MB)
-              </p>
+            <label htmlFor="file-upload" className="cursor-pointer block p-8 sm:p-12 text-center">
+              {file ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center">
+                    <File className="w-7 h-7 text-brand-500" />
+                  </div>
+                  <div className="text-left max-w-full">
+                    <p className="font-semibold text-stone-800 text-sm truncate max-w-[260px]">
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-stone-400 mt-0.5">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeFile();
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500 font-medium transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center group-hover:bg-brand-50 transition-colors">
+                    <Upload className="w-7 h-7 text-stone-400" />
+                  </div>
+                  <p className="text-stone-700 font-semibold mb-1">
+                    Drop your CV here, or{" "}
+                    <span className="text-brand-600 underline underline-offset-2">
+                      browse
+                    </span>
+                  </p>
+                  <p className="text-stone-400 text-sm">
+                    PDF, PNG, or JPG &middot; Max 10MB
+                  </p>
+                </>
+              )}
             </label>
           </div>
 
+          {/* Error */}
           {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
-              <XCircle className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="mt-4 p-3.5 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5 animate-slide-down">
+              <XCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+              <p className="text-red-600 text-sm font-medium">{error}</p>
             </div>
           )}
 
+          {/* Analyze Button */}
           {file && !error && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center min-w-0">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" />
-                <span className="text-green-700 text-sm font-medium truncate max-w-full sm:max-w-xs md:max-w-md">
-                  {file.name} uploaded
-                </span>
-              </div>
-
+            <div className="mt-5 animate-slide-up">
               <button
                 onClick={analyzeCV}
                 disabled={loading}
-                className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="btn-primary w-full sm:w-auto"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analyzing your CV...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 mr-2" />
+                    <Sparkles className="w-4 h-4" />
                     Analyze CV
+                    <ArrowRight className="w-4 h-4 ml-1" />
                   </>
                 )}
               </button>
@@ -184,32 +268,53 @@ function App() {
           )}
         </div>
 
+        {/* Results */}
         {analysis && (
-          <div className="space-y-6">
+          <div className="mt-8 space-y-6 animate-slide-up">
+            {/* Extracted Text */}
             {extractedText && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center mb-4">
-                  <FileText className="w-6 h-6 text-indigo-600 mr-2" />
-                  <h2 className="text-xl font-bold text-gray-800">
-                    Extracted Text
-                  </h2>
+              <details className="card group">
+                <summary className="flex items-center gap-3 p-5 sm:p-6 cursor-pointer select-none list-none">
+                  <div className="w-10 h-10 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-stone-500" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h2 className="font-display text-base font-bold text-stone-800">
+                      Extracted Text
+                    </h2>
+                    <p className="text-xs text-stone-400 mt-0.5">
+                      Content parsed from your document
+                    </p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-stone-300 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+                  <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 max-h-56 overflow-y-auto">
+                    <p className="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">
+                      {extractedText}
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {extractedText}
+              </details>
+            )}
+
+            {/* AI Analysis */}
+            <div className="card-elevated p-5 sm:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center shadow-md shadow-brand-500/20">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-display text-base font-bold text-stone-800">
+                    AI Recommendations
+                  </h2>
+                  <p className="text-xs text-stone-400 mt-0.5">
+                    Personalized insights for your resume
                   </p>
                 </div>
               </div>
-            )}
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center mb-4">
-                <Sparkles className="w-6 h-6 text-indigo-600 mr-2" />
-                <h2 className="text-xl font-bold text-gray-800">
-                  AI Recommendations
-                </h2>
-              </div>
-              <div className="prose prose-indigo max-w-none">
+              <div className="prose prose-sm max-w-none">
                 <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>
                   {analysis}
                 </ReactMarkdown>
@@ -217,6 +322,13 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-16 text-center">
+          <p className="text-xs text-stone-300 font-medium">
+            CV Analyzer &middot; Your data stays private
+          </p>
+        </footer>
       </div>
     </div>
   );
