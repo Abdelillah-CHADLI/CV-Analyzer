@@ -1,92 +1,66 @@
 # CV Analyzer
 
-> **Note about the live demo:**  
-> The application uses a hosted backend service for CV analysis with the Gemini API.  
-> Because the service may become inactive after long periods without traffic, the first request can take **2–3 minutes** to complete while the backend wakes up. Subsequent requests are usually much faster.
-
-**AI-powered CV analysis tool** that extracts, analyzes, and provides actionable recommendations to help users improve their resumes. Supports PDF, PNG, and JPG files, with OCR text extraction.
-
----
+CV Analyzer is a React and Express application that extracts text from a CV and asks Google Gemini for feedback on its content, presentation, and ATS readiness.
 
 ## Features
-- Extract text from PDF (pdf-parse.js), PNG, and JPG CVs using OCR (Tesseract.js)
-- AI-powered analysis and personalized recommendations using **Google Gemini API**
-- Clean and structured Markdown output for easy readability
-- Responsive web interface built with React and Tailwind CSS
-- Drag-and-drop upload and file validation
-- Real-time AI feedback for improving CV structure, skills, and content
 
----
+- Upload a PDF, PNG, or JPG file up to 10 MB by browsing or dragging it into the page.
+- Extract text from PDFs with `pdf-parse` and from images with Tesseract OCR (English, Arabic, and French).
+- View the extracted text and a structured Gemini analysis with scores, strengths, issues, and a prioritized action plan.
+- Read the analysis in a responsive interface built with React and Tailwind CSS.
 
-## Project Structure
-- `/backend` - Node.js + Express server handling file uploads, OCR, and AI analysis
-- `/frontend` - React web application for file upload, analysis display, and user interaction
+## Requirements
 
----
+- Node.js 18 or newer and npm 9 or newer
+- A Google Gemini API key
 
-## Tech Stack
-- **Backend:** Node.js, Express
-- **Frontend:** React, Tailwind CSS
-- **AI Analysis:** Google Gemini API
-- **OCR:** Tesseract.js
+## Run locally
 
----
+1. Clone the repository and install dependencies:
 
-## Installation
+   ```bash
+   git clone https://github.com/Abdelillah-CHADLI/CV-Analyzer.git
+   cd CV-Analyzer
+   cd backend && npm install
+   cd ../frontend && npm install
+   ```
 
-1. **Clone the repository:**
-```bash
-git clone https://github.com/Abdelillah-CHADLI/CV-Analyzer
-cd CV-Analyzer
-```
+2. Create `backend/.env` with your API key:
 
-2. **Set up the backend:**
-```bash
-cd backend
-npm install
-```
+   ```dotenv
+   GEMINI_API_KEY=your_gemini_api_key
+   PORT=3001
+   ```
 
-3. **Set up the frontend:**
-```bash
-cd ../frontend
-npm install
-```
+3. Start the backend from `backend/`:
 
-4. **Environment Variables (.env):**
-```bash
-Create a .env file in the /backend folder with your Gemini API key:
+   ```bash
+   npm start
+   ```
 
-GEMINI_API_KEY=your_gemini_api_key_here
-PORT=3001
-```
+4. In a second terminal, start the frontend from `frontend/`:
 
-5. **Run the app:**
-```bash
-# In backend folder
-npm start
+   ```bash
+   npm start
+   ```
 
-# In frontend folder
-npm start
-Open your browser at http://localhost:3000 to use the app.
-```
+Open <http://localhost:3000>. The frontend uses <http://localhost:3001> for the API by default. To use another backend URL, set `REACT_APP_API_URL` in the frontend environment before starting or building it.
 
+## API
 
-## Status
-Beta version. Work in progress:
+`POST /api/upload` accepts one multipart form field named `cv`. Supported MIME types are PDF, PNG, and JPEG; the maximum file size is 10 MB. The response includes the extracted text and AI analysis. Files with less than 50 characters of extracted text are rejected.
 
-1-Improve PDF and OCR extraction accuracy
+`GET /api/health` returns the backend status.
 
-2-Reduce response time
+## Project layout
 
-3-Clean up output formatting
+- `backend/` — Express API, file validation, text extraction, and Gemini request.
+- `frontend/` — React upload and results interface. Run `npm run build` here to create a production build.
 
-4-Potentially support additional file types
+## Notes
+
+Analysis requires a working Gemini API key and network access. The first request to a hosted backend may take longer if that service has been idle. Review the extracted text before relying on the recommendations, especially for image scans and complex PDF layouts.
 
 ## Contributing
-Contributions are welcome! Please fork the repository, create a branch, and submit a pull request with your improvements.
 
-## Author
-Mohamed Abdelillah Chadli
-
-## License
-MIT
+Contributions are welcome. Open an issue or submit a pull request with a clear description of the change.
