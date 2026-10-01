@@ -32,3 +32,26 @@ test("uses the current free-tier model and JSON response format", async () => {
     else process.env.GEMINI_API_KEY = originalKey;
   }
 });
+
+test("redacts the API key from Gemini request diagnostics", async () => {
+  const originalFetch = global.fetch;
+  const originalKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "private-test-key";
+  global.fetch = async () => ({
+    ok: false,
+    status: 400,
+    text: async () => JSON.stringify({ error: { message: "Invalid request using private-test-key" } }),
+  });
+  try {
+    await assert.rejects(
+      analyzeCVText("Synthetic CV text for testing.", "", ""),
+      (error) => error.code === "GEMINI_REQUEST_INVALID" &&
+        error.diagnostic.includes("[redacted]") &&
+        !error.diagnostic.includes("private-test-key")
+    );
+  } finally {
+    global.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
+  }
+});
