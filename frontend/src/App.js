@@ -1,400 +1,226 @@
-import React, { useState, useCallback } from "react";
+import React, { useRef, useState } from "react";
 import {
-  Upload,
-  FileText,
-  Sparkles,
-  XCircle,
-  Loader2,
-  ArrowRight,
-  Shield,
-  Zap,
-  BarChart3,
-  ChevronDown,
-  File,
-  X,
+  ArrowRight, Check, CheckCircle2, ChevronDown, Circle, ClipboardCheck,
+  Download, FileText, Lightbulb, Loader2, Search, ShieldCheck, Sparkles,
+  Target, UploadCloud, X, XCircle,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize from "rehype-sanitize";
+
+const MAX_SIZE = 10 * 1024 * 1024;
+const MIME_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+const TABS = ["Overview", "Action plan", "Detailed review"];
+const SCORE_LABELS = [
+  ["ats", "ATS readiness"], ["content", "Content quality"],
+  ["presentation", "Presentation"], ["impact", "Impact"],
+];
+
+const list = (value) => Array.isArray(value) ? value : [];
+const score = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))
+  ? Math.max(0, Math.min(100, Math.round(Number(value)))) : null;
+const fileSize = (bytes) => bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+function ScoreBar({ label, value }) {
+  const amount = score(value);
+  return <div className="score-row">
+    <div className="score-row-label"><span>{label}</span><strong>{amount === null ? "—" : `${amount}/100`}</strong></div>
+    <div className="score-track"><div className="score-fill" style={{ width: `${amount || 0}%` }} /></div>
+  </div>;
+}
+
+function SectionTitle({ eyebrow, title, description }) {
+  return <div className="section-title">
+    <span className="eyebrow">{eyebrow}</span>
+    <h2>{title}</h2>
+    {description && <p>{description}</p>}
+  </div>;
+}
 
 function App() {
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(null);
-  const [extractedText, setExtractedText] = useState("");
-  const [analysis, setAnalysis] = useState(null);
+  const [role, setRole] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [dragActive, setDragActive] = useState(false);
+  const [report, setReport] = useState(null);
+  const [extractedText, setExtractedText] = useState("");
+  const [activeTab, setActiveTab] = useState("Overview");
+  const [completed, setCompleted] = useState({});
+  const [copied, setCopied] = useState(false);
+  const abortRef = useRef(null);
+  const inputRef = useRef(null);
+  const resultsRef = useRef(null);
 
-  const handleDrag = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  }, []);
-
-  const handleChange = (e) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
-    }
-  };
-
-  const handleFile = (uploadedFile) => {
-    const validTypes = [
-      "image/png",
-      "image/jpeg",
-      "image/jpg",
-      "application/pdf",
-    ];
-
-    if (!validTypes.includes(uploadedFile.type)) {
-      setError("Please upload a PDF, PNG, or JPG file.");
+  function selectFile(nextFile) {
+    if (!nextFile) return;
+    if (!MIME_TYPES.includes(nextFile.type)) {
+      setError("Choose a PDF, PNG, or JPG file.");
       return;
     }
-
-    if (uploadedFile.size > 10 * 1024 * 1024) {
-      setError("File size must be less than 10MB.");
+    if (nextFile.size > MAX_SIZE) {
+      setError("The file must be 10 MB or smaller.");
       return;
     }
-
-    setFile(uploadedFile);
-    setError("");
-    setAnalysis(null);
+    if (loading) cancelAnalysis();
+    setFile(nextFile);
+    setReport(null);
     setExtractedText("");
-  };
+    setCompleted({});
+    setError("");
+  }
 
-  const removeFile = () => {
+  function clearFile() {
+    if (loading) cancelAnalysis();
     setFile(null);
-    setError("");
-    setAnalysis(null);
+    setReport(null);
     setExtractedText("");
-  };
+    setCompleted({});
+    setError("");
+    if (inputRef.current) inputRef.current.value = "";
+  }
 
-  const analyzeCV = async () => {
-    if (!file) return;
-
+  async function analyze() {
+    if (!file || loading) return;
     setLoading(true);
     setError("");
-
-    const formData = new FormData();
-    formData.append("cv", file);
-
+    setReport(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const form = new FormData();
+    form.append("cv", file);
+    form.append("targetRole", role.trim());
+    form.append("jobDescription", jobDescription.trim());
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-      const response = await fetch(`${apiUrl}/api/upload`, {
-        method: "POST",
-        body: formData,
-      });
+      const apiUrl = (process.env.REACT_APP_API_URL || "http://localhost:3001").replace(/\/$/, "");
+      const response = await fetch(`${apiUrl}/api/upload`, { method: "POST", body: form, signal: controller.signal });
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Analysis failed");
-      }
-
-      setExtractedText(data.data.extractedText);
-      setAnalysis(data.data.aiAnalysis);
-    } catch (err) {
-      setError(err.message || "Failed to analyze CV. Please try again.");
+      if (!response.ok || !data?.data?.report) throw new Error(data.error || "Analysis failed. Please try again.");
+      setReport(data.data.report);
+      setExtractedText(data.data.extractedText || "");
+      setActiveTab("Overview");
+      setCompleted({});
+      window.setTimeout(() => resultsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }), 80);
+    } catch (failure) {
+      if (failure.name !== "AbortError") setError(failure.message || "Could not analyze the CV. Please try again.");
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  // Split markdown into sections based on headings (## or ###)
-  const splitIntoSections = (markdown) => {
-    if (!markdown) return [];
-    const lines = markdown.split("\n");
-    const sections = [];
-    let current = { title: null, content: [] };
-
-    lines.forEach((line) => {
-      const headingMatch = line.match(/^#{2,3}\s+(.+)/);
-      if (headingMatch) {
-        if (current.content.length > 0) {
-          sections.push({ ...current, content: current.content.join("\n") });
-        }
-        current = { title: headingMatch[1].trim(), content: [] };
-      } else {
-        current.content.push(line);
+      if (abortRef.current === controller) {
+        setLoading(false);
+        abortRef.current = null;
       }
-    });
-
-    if (current.content.length > 0) {
-      sections.push({ ...current, content: current.content.join("\n") });
     }
+  }
 
-    return sections;
-  };
+  function cancelAnalysis() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+  }
 
-  const analysisSections = analysis ? splitIntoSections(analysis) : [];
+  function exportReport() {
+    if (!report) return;
+    const lines = [
+      "CV ANALYSIS", file?.name || "", "", report.overview?.summary || "", "",
+      `Overall score: ${score(report.overview?.scores?.overall) ?? "N/A"}/100`, "",
+      "TOP PRIORITIES", ...list(report.priorities).map((item) => `- ${item.title}: ${item.fix}`), "",
+      "ACTION PLAN", ...["first", "next", "later"].flatMap((group) =>
+        [`${group.toUpperCase()}:`, ...list(report.actionPlan?.[group]).map((item) => `- ${item}`)]), "",
+      "STRENGTHS", ...list(report.strengths).map((item) => `- ${item}`), "",
+      "SECTION REVIEW", ...list(report.sections).flatMap((item) =>
+        [item.name || "Section", `Works: ${item.good || "—"}`, `Improve: ${item.improve || "—"}`, ""]),
+    ];
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "cv-analysis.txt";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
-  return (
-    <div className="min-h-screen bg-surface-50 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-100/40 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-50/60 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-50/30 rounded-full blur-3xl" />
+  async function copySummary() {
+    try {
+      await navigator.clipboard.writeText(report?.overview?.summary || "");
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (_) {
+      setError("Could not copy the summary. Try downloading the report instead.");
+    }
+  }
+
+  const scores = report?.overview?.scores || {};
+  const plan = report?.actionPlan || {};
+  const planGroups = [["first", "Do first"], ["next", "Do next"], ["later", "Nice to have"]];
+  const totalTasks = planGroups.reduce((total, [key]) => total + list(plan[key]).length, 0);
+  const doneCount = Object.values(completed).filter(Boolean).length;
+
+  return <div className="app-shell">
+    <header className="site-header">
+      <div className="container header-inner">
+        <a className="brand" href="#top"><span className="brand-mark"><FileText size={20} /></span><span>CV<span className="brand-accent">Analyzer</span></span></a>
+        <span className="header-note"><Sparkles size={14} /> Thoughtful feedback for your next move</span>
       </div>
+    </header>
 
-      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
-        {/* Header */}
-        <header className="text-center mb-12 animate-fade-in">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 border border-brand-100 rounded-full text-brand-700 text-xs font-semibold mb-6 tracking-wide uppercase">
-            <Sparkles className="w-3.5 h-3.5" />
-            AI-Powered Analysis
-          </div>
-
-          <h1 className="font-display text-4xl sm:text-5xl font-extrabold text-stone-900 tracking-tight mb-4 leading-tight">
-            Upgrade your CV
-            <br />
-            <span className="bg-gradient-to-r from-brand-600 via-brand-500 to-violet-500 bg-clip-text text-transparent">
-              with smart feedback
-            </span>
-          </h1>
-
-          <p className="text-stone-500 text-lg max-w-md mx-auto leading-relaxed">
-            Upload your resume and receive tailored, AI-driven recommendations
-            to stand out to recruiters.
-          </p>
-        </header>
-
-        {/* Features row */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-10 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-          {[
-            { icon: Zap, label: "Instant analysis", sub: "Seconds" },
-            { icon: BarChart3, label: "ATS scoring", sub: "Optimized" },
-            { icon: Shield, label: "Private & secure", sub: "Encrypted" },
-          ].map(({ icon: Icon, label, sub }) => (
-            <div
-              key={label}
-              className="flex flex-col items-center gap-1.5 py-4 px-2 bg-white/70 backdrop-blur-sm border border-stone-100 rounded-xl text-center"
-            >
-              <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center">
-                <Icon className="w-4.5 h-4.5 text-brand-600" />
-              </div>
-              <span className="text-xs sm:text-sm font-semibold text-stone-800">{label}</span>
-              <span className="text-[10px] sm:text-xs text-stone-400 font-medium">{sub}</span>
-            </div>
-          ))}
+    <main id="top" className="container main-content">
+      <section className="intro-grid" aria-labelledby="page-title">
+        <div className="intro-copy">
+          <div className="pill"><span className="pill-dot" /> YOUR CAREER, CLEARER</div>
+          <h1 id="page-title">Make your CV<br /><em>work harder.</em></h1>
+          <p>Get a focused review of what works, what needs attention, and what to change next. Built for quick decisions and deeper reading when you need it.</p>
+          <div className="intro-points"><span><Target size={17} /> Role-aware feedback</span><span><ClipboardCheck size={17} /> Clear next steps</span></div>
         </div>
-
-        {/* Upload Card */}
-        <div
-          className={`card p-6 sm:p-8 animate-slide-up ${!analysis ? "shadow-elevated" : ""}`}
-          style={{ animationDelay: "0.2s" }}
-        >
-          {/* Dropzone */}
-          <div
-            className={`upload-zone ${
-              dragActive ? "upload-zone-active" : "upload-zone-idle"
-            } cursor-pointer`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <input
-              type="file"
-              id="file-upload"
-              className="hidden"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={handleChange}
-            />
-            <label htmlFor="file-upload" className="cursor-pointer block p-8 sm:p-12 text-center">
-              {file ? (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center">
-                    <File className="w-7 h-7 text-brand-500" />
-                  </div>
-                  <div className="text-center max-w-full">
-                    <p className="font-semibold text-stone-800 text-sm truncate max-w-[260px]">
-                      {file.name}
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-stone-50 border border-stone-100 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse-slow" />
-                    <span className="text-xs text-stone-500 font-medium">
-                      {formatFileSize(file.size)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      removeFile();
-                    }}
-                    className="inline-flex items-center gap-1 text-xs text-stone-400 hover:text-red-500 font-medium transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center group-hover:bg-brand-50 transition-colors">
-                    <Upload className="w-7 h-7 text-stone-400" />
-                  </div>
-                  <p className="text-stone-700 font-semibold mb-1">
-                    Drop your CV here, or{" "}
-                    <span className="text-brand-600 underline underline-offset-2">
-                      browse
-                    </span>
-                  </p>
-                  <p className="text-stone-400 text-sm">
-                    PDF, PNG, or JPG &middot; Max 10MB
-                  </p>
-                </>
-              )}
-            </label>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="mt-4 p-3.5 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5 animate-slide-down">
-              <XCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-              <p className="text-red-600 text-sm font-medium">{error}</p>
-            </div>
-          )}
-
-          {/* Analyze Button */}
-          {file && !error && (
-            <div className="mt-5 animate-slide-up">
-              <button
-                onClick={analyzeCV}
-                disabled={loading}
-                className="btn-primary w-full sm:w-auto"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Analyzing your CV...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Analyze CV
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+        <div className="process-card" aria-label="How it works">
+          <div className="process-header"><span className="eyebrow">THE PROCESS</span><span className="process-icon"><Sparkles size={17} /></span></div>
+          <div className="process-step"><span>01</span><div><strong>Share your CV</strong><p>Upload a PDF or image, up to 10 MB.</p></div></div>
+          <div className="process-step"><span>02</span><div><strong>Add context</strong><p>Tell us your target role or paste a job description.</p></div></div>
+          <div className="process-step"><span>03</span><div><strong>Make a plan</strong><p>Review your scores, priorities, and practical edits.</p></div></div>
         </div>
+      </section>
 
-        {/* Results */}
-        {analysis && (
-          <div className="mt-8 space-y-6 animate-slide-up">
-            {/* Extracted Text */}
-            {extractedText && (
-              <details className="card group">
-                <summary className="flex items-center gap-3 p-5 sm:p-6 cursor-pointer select-none list-none">
-                  <div className="w-10 h-10 rounded-xl bg-stone-50 border border-stone-100 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-5 h-5 text-stone-500" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <h2 className="font-display text-base font-bold text-stone-800">
-                      Extracted Text
-                    </h2>
-                    <p className="text-xs text-stone-400 mt-0.5">
-                      Content parsed from your document
-                    </p>
-                  </div>
-                  <ChevronDown className="w-5 h-5 text-stone-300 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-                  <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 max-h-56 overflow-y-auto">
-                    <p className="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">
-                      {extractedText}
-                    </p>
-                  </div>
-                </div>
-              </details>
-            )}
-
-            {/* AI Analysis */}
-            <div className="card-elevated p-5 sm:p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center shadow-md shadow-brand-500/20">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="font-display text-base font-bold text-stone-800">
-                    AI Recommendations
-                  </h2>
-                  <p className="text-xs text-stone-400 mt-0.5">
-                    Personalized insights for your resume
-                  </p>
-                </div>
-              </div>
-
-              <div className="prose prose-sm max-w-none">
-                {analysisSections.length > 0 ? (
-                  <div className="space-y-8">
-                    {analysisSections.map((section, idx) => (
-                      <div key={idx} className="flex gap-4">
-                        <div className="hidden sm:flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-white font-display text-sm font-bold flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20">
-                            {idx + 1}
-                          </div>
-                          {idx < analysisSections.length - 1 && (
-                            <div className="w-px flex-1 bg-gradient-to-b from-brand-200 to-transparent my-2" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          {section.title && (
-                            <h3 className="font-display text-base font-bold text-stone-800 flex items-center gap-2 mb-2">
-                              <ChevronDown className="w-4 h-4 text-brand-500 sm:hidden" />
-                              {section.title}
-                            </h3>
-                          )}
-                          <div className="prose prose-sm max-w-none">
-                            <ReactMarkdown
-                              rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                            >
-                              {section.content}
-                            </ReactMarkdown>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]}>
-                    {analysis}
-                  </ReactMarkdown>
-                )}
-              </div>
+      <section className="workspace-card" aria-labelledby="upload-title">
+        <div className="workspace-heading"><div><span className="eyebrow">START HERE</span><h2 id="upload-title">Analyze your CV</h2><p>A little context makes the recommendations more useful.</p></div><span className="step-count">01 / 02</span></div>
+        <div className="form-grid">
+          <div>
+            <input ref={inputRef} id="cv-file" type="file" accept=".pdf,.png,.jpg,.jpeg" className="sr-only" onChange={(event) => selectFile(event.target.files?.[0])} />
+            <div className={`drop-zone ${dragging ? "is-dragging" : ""}`} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { event.preventDefault(); setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); selectFile(event.dataTransfer.files?.[0]); }}>
+              <div className="drop-icon"><UploadCloud size={26} /></div>
+              {file ? <><strong className="selected-file">{file.name}</strong><span>{fileSize(file.size)} · Ready to analyze</span><button type="button" className="text-button" onClick={clearFile}>Remove file <X size={14} /></button></> : <><strong>Drop your CV here</strong><span>or choose a file from your device</span><label htmlFor="cv-file" className="browse-button">Browse files <ArrowRight size={15} /></label></>}
+              <small>PDF, PNG, JPG · Maximum 10 MB</small>
             </div>
           </div>
-        )}
+          <div className="context-fields">
+            <label htmlFor="target-role">Target role <span>Optional</span></label>
+            <input id="target-role" value={role} onChange={(event) => setRole(event.target.value)} maxLength={120} placeholder="e.g. Product Designer" />
+            <label htmlFor="job-description">Job description <span>Optional</span></label>
+            <textarea id="job-description" value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} maxLength={8000} rows={5} placeholder="Paste the role requirements for more relevant feedback..." />
+            <p className="field-hint"><ShieldCheck size={15} /> Your CV and any job description are sent to the analysis service.</p>
+          </div>
+        </div>
+        {error && <div className="error-message" role="alert"><XCircle size={18} />{error}</div>}
+        <div className="form-footer"><p>You'll get a concise overview first, with details when you want them.</p><div className="form-actions">{loading && <button type="button" className="cancel-button" onClick={cancelAnalysis}>Cancel</button>}<button type="button" className="primary-button" onClick={analyze} disabled={!file || loading || !!error}>{loading ? <><Loader2 size={17} className="spin" /> Analyzing...</> : <>Analyze CV <ArrowRight size={17} /></>}</button></div></div>
+      </section>
 
-        {/* Footer */}
-        <footer className="mt-16 text-center">
-          <p className="text-xs text-stone-300 font-medium">
-            CV Analyzer &middot; Your data stays private
-          </p>
-        </footer>
-      </div>
-    </div>
-  );
+      {report && <section className="results" ref={resultsRef} aria-labelledby="results-title">
+        <div className="results-heading"><div><span className="eyebrow">YOUR REVIEW</span><h2 id="results-title">A clearer path forward</h2><p>{file?.name}</p></div><div className="result-actions"><button type="button" className="secondary-button" onClick={copySummary}>{copied ? <Check size={16} /> : <ClipboardCheck size={16} />}{copied ? "Copied" : "Copy summary"}</button><button type="button" className="secondary-button" onClick={exportReport}><Download size={16} /> Download report</button></div></div>
+        <div className="tab-list" role="tablist" aria-label="Analysis sections">{TABS.map((tab) => <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}</div>
+
+        {activeTab === "Overview" && <div className="overview-layout" role="tabpanel">
+          <div className="overview-main">
+            <article className="verdict-card"><div className="verdict-top"><span className="eyebrow">AT A GLANCE</span><span className="verdict-tag">{report.overview?.verdict || "CV review"}</span></div><div className="verdict-body"><div className="big-score"><strong>{score(scores.overall) ?? "—"}</strong><span>/ 100</span></div><div><h3>Your CV, summarized</h3><p>{report.overview?.summary || "Your review is ready. Explore the sections below."}</p></div></div></article>
+            <div className="content-card"><SectionTitle eyebrow="FOCUS AREAS" title="What to improve first" description="The changes most likely to make a difference." />{list(report.priorities).length ? <div className="priority-list">{list(report.priorities).map((item, index) => <article className="priority-item" key={`${item.title}-${index}`}><div className="priority-number">{String(index + 1).padStart(2, "0")}</div><div><div className="priority-head"><h3>{item.title}</h3><span className={`severity severity-${String(item.severity || "medium").toLowerCase()}`}>{item.severity || "Focus"}</span></div><p>{item.reason}</p><div className="fix-line"><Lightbulb size={16} /><span>{item.fix}</span></div></div></article>)}</div> : <p className="empty-note">No specific issues were returned for this CV.</p>}</div>
+          </div>
+          <aside className="overview-side"><div className="content-card score-card"><SectionTitle eyebrow="SCORECARD" title="The breakdown" />{SCORE_LABELS.map(([key, label]) => <ScoreBar key={key} label={label} value={scores[key]} />)}<p className="score-disclaimer">Scores are AI estimates to guide review, not hiring predictions.</p></div><div className="content-card strengths-card"><SectionTitle eyebrow="ALREADY WORKING" title="Your strengths" />{list(report.strengths).length ? <ul className="strength-list">{list(report.strengths).map((item, index) => <li key={index}><CheckCircle2 size={18} /><span>{item}</span></li>)}</ul> : <p className="empty-note">No specific strengths were returned.</p>}</div><button type="button" className="next-card" onClick={() => setActiveTab("Action plan")}><span><strong>Ready to improve it?</strong><small>Turn the feedback into a checklist.</small></span><ArrowRight size={20} /></button></aside>
+        </div>}
+
+        {activeTab === "Action plan" && <div className="plan-layout" role="tabpanel"><div className="content-card plan-card"><SectionTitle eyebrow="YOUR NEXT STEPS" title="A plan you can work through" description="Check off improvements as you make them. Progress stays on this page until you leave or analyze another CV." /><div className="plan-progress"><div className="plan-progress-label"><strong>{doneCount} of {totalTasks} complete</strong><span>{totalTasks ? Math.round(doneCount / totalTasks * 100) : 0}%</span></div><div className="score-track"><div className="score-fill" style={{ width: `${totalTasks ? doneCount / totalTasks * 100 : 0}%` }} /></div></div>{planGroups.map(([key, heading]) => list(plan[key]).length > 0 && <div className="plan-group" key={key}><h3>{heading}</h3>{list(plan[key]).map((item, index) => { const id = `${key}-${index}`; return <button type="button" key={id} className={`task-row ${completed[id] ? "done" : ""}`} onClick={() => setCompleted((current) => ({ ...current, [id]: !current[id] }))}>{completed[id] ? <CheckCircle2 size={20} /> : <Circle size={20} />}<span>{item}</span></button>; })}</div>)}{!totalTasks && <p className="empty-note">No action items were returned.</p>}</div><div className="plan-aside"><div className="content-card"><span className="eyebrow">A USEFUL REMINDER</span><h3>Keep it truthful.</h3><p>Use these suggestions only when they match your real experience. Add numbers and keywords when you can support them.</p></div></div></div>}
+
+        {activeTab === "Detailed review" && <div className="details-layout" role="tabpanel"><div className="content-card"><SectionTitle eyebrow="SECTION BY SECTION" title="Look closer" description="Open the areas that matter most to you." />{list(report.sections).map((item, index) => <details className="detail-accordion" key={index}><summary><span>{item.name || `Section ${index + 1}`}</span><ChevronDown size={18} /></summary><div className="accordion-body"><div><strong>What works</strong><p>{item.good || "No specific strength noted."}</p></div><div><strong>What to improve</strong><p>{item.improve || "No specific change noted."}</p></div></div></details>)}{!list(report.sections).length && <p className="empty-note">No section review was returned.</p>}</div>
+          <div className="content-card"><SectionTitle eyebrow="PRACTICAL EDITS" title="Better wording" description="Examples based on text found in your CV." />{list(report.rewrites).length ? list(report.rewrites).map((item, index) => <div className="rewrite-card" key={index}><span>BEFORE</span><p>{item.before}</p><span>TRY THIS</span><p className="rewrite-after">{item.after}</p>{item.note && <small>{item.note}</small>}</div>) : <p className="empty-note">No safe wording changes were identified.</p>}</div>
+          <div className="content-card"><SectionTitle eyebrow="ATS REVIEW" title="Keywords & parsing" />{[["Already present", report.ats?.existingKeywords], ["Consider if accurate", report.ats?.suggestedKeywords]].map(([label, values]) => <div className="keyword-group" key={label}><h3>{label}</h3><div className="keyword-list">{list(values).length ? list(values).map((value, index) => <span key={index}>{value}</span>) : <p className="empty-note">None identified.</p>}</div></div>)}{list(report.ats?.concerns).length > 0 && <div className="ats-concerns"><h3>Parsing concerns</h3><ul>{list(report.ats.concerns).map((item, index) => <li key={index}>{item}</li>)}</ul></div>}</div>
+          {extractedText && <details className="content-card extracted-card"><summary><span><Search size={19} /> Extracted text</span><ChevronDown size={18} /></summary><p>Check that the text was read correctly before applying the feedback.</p><pre>{extractedText}</pre></details>}
+        </div>}
+      </section>}
+    </main>
+    <footer className="site-footer"><div className="container"><span>CV Analyzer</span><span>Feedback is a starting point. You decide what goes on your CV.</span></div></footer>
+  </div>;
 }
 
 export default App;

@@ -6,8 +6,10 @@ CV Analyzer is a React and Express application that extracts text from a CV and 
 
 - Upload a PDF, PNG, or JPG file up to 10 MB by browsing or dragging it into the page.
 - Extract text from PDFs with `pdf-parse` and from images with Tesseract OCR (English, Arabic, and French).
-- View the extracted text and a structured Gemini analysis with scores, strengths, issues, and a prioritized action plan.
-- Read the analysis in a responsive interface built with React and Tailwind CSS.
+- Add a target role or job description for more relevant feedback.
+- See a concise dashboard with scores, strengths, and ranked improvements; open detailed section reviews, wording examples, and ATS notes when needed.
+- Work through an interactive action checklist, copy the summary, or download the report as a text file.
+- Review the extracted text to catch scanning or parsing mistakes.
 
 ## Requirements
 
@@ -48,7 +50,7 @@ Open <http://localhost:3000>. The frontend uses <http://localhost:3001> for the 
 
 ## API
 
-`POST /api/upload` accepts one multipart form field named `cv`. Supported MIME types are PDF, PNG, and JPEG; the maximum file size is 10 MB. The response includes the extracted text and AI analysis. Files with less than 50 characters of extracted text are rejected.
+`POST /api/upload` accepts one multipart form field named `cv`, plus optional `targetRole` and `jobDescription` text fields. Supported MIME types are PDF, PNG, and JPEG; the maximum file size is 10 MB. The response includes `data.extractedText` and a structured `data.report` with scores, priorities, strengths, section reviews, wording examples, ATS notes, and an action plan. Files with less than 50 characters of extracted text are rejected.
 
 `GET /api/health` returns the backend status.
 
@@ -59,7 +61,7 @@ Open <http://localhost:3000>. The frontend uses <http://localhost:3001> for the 
 
 ## Notes
 
-Analysis requires a working Gemini API key and network access. The first request to a hosted backend may take longer if that service has been idle. Review the extracted text before relying on the recommendations, especially for image scans and complex PDF layouts.
+Analysis requires a working Gemini API key and network access. The CV text and any job description are sent to the analysis service. The first request to a hosted backend may take longer if that service has been idle. Review the extracted text before relying on the recommendations, especially for image scans and complex PDF layouts. Checklist progress is kept only in the current page session.
 
 ## Contributing
 
