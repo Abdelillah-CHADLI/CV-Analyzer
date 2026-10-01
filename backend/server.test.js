@@ -24,7 +24,7 @@ test("uses the current free-tier model and JSON response format", async () => {
     assert.match(request.url, /\/v1beta\/models\/gemini-3\.8-flash:generateContent$/);
     assert.equal(request.options.headers["x-goog-api-key"], "test-key");
     const body = JSON.parse(request.options.body);
-    assert.equal(body.generationConfig.responseFormat.text.mimeType, "application/json");
+    assert.equal(body.generationConfig.responseFormat.text.mimeType, "APPLICATION_JSON");
     assert.equal(body.generationConfig.responseFormat.text.schema.type, "object");
   } finally {
     global.fetch = originalFetch;

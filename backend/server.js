@@ -135,7 +135,7 @@ Scores must be integers from 0 to 100, based only on the CV. Return 2-4 strength
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          responseFormat: { text: { mimeType: "application/json", schema: REPORT_SCHEMA } },
+          responseFormat: { text: { mimeType: "APPLICATION_JSON", schema: REPORT_SCHEMA } },
         },
       }),
     }
