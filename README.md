@@ -16,6 +16,8 @@ CV Analyzer is a React and Express application that extracts text from a CV and 
 - Node.js 18 or newer and npm 9 or newer
 - A Google Gemini API key
 
+The backend defaults to `gemini-3.8-flash`, which Google lists on the [Gemini API free tier](https://ai.google.dev/gemini-api/docs/pricing) for standard requests. Free usage is subject to your project's rate limits. You can set `GEMINI_MODEL` on the backend if you need to change models later.
+
 ## Run locally
 
 1. Clone the repository and install dependencies:
@@ -52,7 +54,7 @@ Open <http://localhost:3000>. The frontend uses <http://localhost:3001> for the 
 
 `POST /api/upload` accepts one multipart form field named `cv`, plus optional `targetRole` and `jobDescription` text fields. Supported MIME types are PDF, PNG, and JPEG; the maximum file size is 10 MB. The response includes `data.extractedText` and a structured `data.report` with scores, priorities, strengths, section reviews, wording examples, ATS notes, and an action plan. Files with less than 50 characters of extracted text are rejected.
 
-`GET /api/health` returns the backend status.
+`GET /` identifies the API and lists its routes. `GET /api/health` returns the backend status and an `analysisConfigured` flag, which tells you whether `GEMINI_API_KEY` is set without revealing its value.
 
 ## Project layout
 
@@ -62,6 +64,13 @@ Open <http://localhost:3000>. The frontend uses <http://localhost:3001> for the 
 ## Notes
 
 Analysis requires a working Gemini API key and network access. The CV text and any job description are sent to the analysis service. The first request to a hosted backend may take longer if that service has been idle. Review the extracted text before relying on the recommendations, especially for image scans and complex PDF layouts. Checklist progress is kept only in the current page session.
+
+## Deployment checks
+
+- Set `GEMINI_API_KEY` in the backend host's environment. On Render, redeploy after changing it.
+- Set `REACT_APP_API_URL` to the backend's HTTPS origin in the frontend build environment; omit the trailing `/api` path.
+- Open `/api/health` on the backend. `status: "ok"` confirms the server is running; `analysisConfigured: true` confirms a key is present, and `model` shows which model is configured. This cannot prove the key is valid or has quota.
+- If analysis fails, the upload response now includes a short `code` and a specific message for common Gemini key, permission, model, request, and quota errors. Check Render logs for the upstream status and reason without sharing the API key.
 
 ## Contributing
 
