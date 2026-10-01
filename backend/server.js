@@ -148,9 +148,7 @@ Scores must be integers from 0 to 100, based only on the CV. Return 2-4 strength
     const providerMessage = String(payload.error?.message || "No provider detail")
       .replaceAll(apiKey, "[redacted]")
       .slice(0, 500);
-    if (response.status === 400) {
-      error.diagnostic = providerMessage;
-    }
+    error.diagnostic = providerMessage;
     console.error("Gemini API error:", error.upstreamStatus, error.upstreamReason, providerMessage);
     throw error;
   }
@@ -191,6 +189,10 @@ app.post("/api/upload", upload.single("cv"), async (req, res) => {
       error: error.message || "Failed to analyze CV.",
       code: error.code || "ANALYSIS_FAILED",
       ...(error.diagnostic ? { diagnostic: error.diagnostic } : {}),
+      ...(error.upstreamStatus ? {
+        providerStatus: error.upstreamStatus,
+        providerReason: error.upstreamReason,
+      } : {}),
     });
   }
 });
