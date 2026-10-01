@@ -16,7 +16,7 @@ CV Analyzer is a React and Express application that extracts text from a CV and 
 - Node.js 18 or newer and npm 9 or newer
 - A Google Gemini API key
 
-The backend defaults to `gemini-3.8-flash`, which Google lists on the [Gemini API free tier](https://ai.google.dev/gemini-api/docs/pricing) for standard requests. Free usage is subject to your project's rate limits. You can set `GEMINI_MODEL` on the backend if you need to change models later.
+The backend defaults to `gemini-3.5-flash` and tries `gemini-3.5-flash-lite` if the first model is temporarily overloaded. Google lists both on the [Gemini API free tier](https://ai.google.dev/gemini-api/docs/pricing) for standard requests. Free usage is subject to your project's rate limits. You can set `GEMINI_MODEL` and `GEMINI_FALLBACK_MODEL` on the backend if availability changes.
 
 ## Run locally
 
@@ -69,7 +69,7 @@ Analysis requires a working Gemini API key and network access. The CV text and a
 
 - Set `GEMINI_API_KEY` in the backend host's environment. On Render, redeploy after changing it.
 - Set `REACT_APP_API_URL` to the backend's HTTPS origin in the frontend build environment; omit the trailing `/api` path.
-- Open `/api/health` on the backend. `status: "ok"` confirms the server is running; `analysisConfigured: true` confirms a key is present, and `model` shows which model is configured. This cannot prove the key is valid or has quota.
+- Open `/api/health` on the backend. `status: "ok"` confirms the server is running; `analysisConfigured: true` confirms a key is present, and `model` and `fallbackModel` show the configured models. This cannot prove the key is valid or has quota.
 - If analysis fails, the upload response now includes a short `code` and a specific message for common Gemini key, permission, model, request, and quota errors. Check Render logs for the upstream status and reason without sharing the API key.
 
 ## Contributing
